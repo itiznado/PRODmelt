@@ -1,0 +1,17 @@
+[
+  {
+    "insumo": "Tomate",
+    "estado": "Aceptado: Produccion requerida",
+    "detalle": "Faltan 2.20 unidades por preparar."
+  },
+  {
+    "insumo": "Pollo",
+    "estado": "Rechazado: Stock suficiente",
+    "detalle": "No es necesario producir mas por ahora."
+  },
+  {
+    "insumo": "Pepperoni",
+    "estado": "Aceptado: Produccion requerida",
+    "detalle": "Faltan 6.00 unidades por preparar."
+  }
+]

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Registros de Producción</h1>
+<a href="{% url 'crear' %}">+ Nuevo registro</a>
+<table border="1">
+    <tr>
+        <th>Insumo</th>
+        <th>Estado</th>
+        <th>Detalle</th>
+        <th>Fecha</th>
+        <th>Acciones</th>
+    </tr>
+    {% for r in registros %}
+    <tr>
+        <td>{{ r.insumo }}</td>
+        <td>{{ r.estado }}</td>
+        <td>{{ r.detalle }}</td>
+        <td>{{ r.fecha }}</td>
+        <td>
+            {% if user.is_superuser or user.groups.all.0.name == "admin" %}
+                <a href="{% url 'editar' r.pk %}">Editar</a>
+                <form method="post" action="{% url 'eliminar' r.pk %}" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?');">
+                    {% csrf_token %}
+                    <button type="submit">Eliminar</button>
+                </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

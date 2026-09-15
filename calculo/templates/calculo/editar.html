@@ -1,0 +1,12 @@
+{# calculo/templates/calculo/editar.html #}
+{% extends "base.html" %}
+{% block content %}
+<h1>Editar: {{ registro.insumo }}</h1>
+<form method="post">
+    {% csrf_token %}
+    <label>Insumo: <input type="text" name="insumo" value="{{ registro.insumo }}" required></label><br>
+    <label>Stock actual: <input type="number" step="0.01" name="stock_actual" value="{{ registro.stock_actual|default:'' }}" required></label><br>
+    <label>Venta proyectada (M$): <input type="number" step="0.01" name="venta_proyectada" value="{{ registro.venta_proyectada|default:'' }}" required></label><br>
+    <button type="submit">Recalcular y guardar</button>
+</form>
+{% endblock %}

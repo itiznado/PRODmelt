@@ -1,0 +1,5 @@
+{# dentro de lista.html, en cada fila #}
+<form method="post" action="{% url 'eliminar' r.pk %}" style="display:inline;" onsubmit="return confirm('¿Eliminar este registro?');">
+    {% csrf_token %}
+    <button type="submit">Eliminar</button>
+</form>
