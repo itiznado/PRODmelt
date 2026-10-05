@@ -66,7 +66,7 @@ La guía diferencia permisos con `is_staff` (lectura y creación para autenticad
 Son dos mecanismos distintos y no coinciden: un usuario del grupo `normal` no es staff, y un staff no pertenece necesariamente a un grupo. Mezclarlos sin decidir habría dejado comportamientos inconsistentes entre la web y la API.
 
 **Refactorización implementada:**
-Decidí usar `is_staff` en la API, como pide la guía, mediante `PermisoDiferenciadoRegistro` en `calculo/permissions.py`, y dejar las vistas HTML con sus grupos. Dejé anotada la unificación como mejora futura en el README. Comprobé que `lector` (no staff) puede leer y crear pero recibe `403` al editar o eliminar (`pruebas/<archivo>`).
+Decidí usar `is_staff` en la API, como pide la guía, mediante `PermisoDiferenciadoRegistro` en `calculo/permissions.py`, y dejar las vistas HTML con sus grupos. Dejé anotada la unificación como mejora futura en el README.
 
 ---
 
