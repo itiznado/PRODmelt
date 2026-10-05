@@ -1,14 +1,17 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.response import Response
 
-from solucion import decidir  # La regla de la ES1, importada intacta
+from solucion import decidir
 from .models import Registro
 from .serializers import RegistroSerializer
+from .permissions import PermisoDiferenciadoRegistro
 
 
 class RegistroViewSet(viewsets.ModelViewSet):
     queryset = Registro.objects.filter(eliminado=False).order_by("-fecha")
     serializer_class = RegistroSerializer
+    permission_classes = [PermisoDiferenciadoRegistro]
 
     def _aplicar_regla(self, serializer):
         """Ejecuta decidir() con los datos nuevos y, si es PATCH, con los que ya tenía el registro."""
