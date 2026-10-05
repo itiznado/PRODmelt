@@ -143,3 +143,9 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "API de Producción de Insumos",
+    "DESCRIPTION": "API RESTful para evaluar la necesidad de producción de insumos.",
+    "VERSION": "1.0.0",
+}
