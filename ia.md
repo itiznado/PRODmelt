@@ -1,49 +1,107 @@
-# ia.md — Bitácora de Uso Crítico de IA
+# Bitácora de uso crítico de IA: ES3 (API RESTful con DRF)
 
-**Herramienta utilizada:** Claude (Anthropic), vía claude.ai.
+**Autor:** `<Ignacio TIznado>`
+**Herramienta(s):** Claude (`<Sonnet 5.5>`)
+**Período:** `<05/10/2026>`
 
-Este documento registra momentos especificos en el desarrollo en que se consultó a la IA, se evaluó su respuesta, y se corrigió o justificó una decisión en base a esa evaluación.
+## Cómo usé la IA en esta evaluación
+
+Usé la IA como apoyo para entender y construir la API: configuración de DRF, serializer, ViewSet, permisos, token y documentación. Mi regla fue **no aceptar ninguna sugerencia sin entender qué hace y probarla**. Cada entrada de esta bitácora sigue la misma estructura: consulta, propuesta, análisis crítico y refactorización.
+---
+
+## Entrada 1: Consulta de seguridad
+
+**Consulta formulada a la IA:**
+Tengo una API con Django REST Framework y TokenAuthentication. Mi POST a /api/registros/ me devuelve 403. ¿Cómo lo soluciono? Explícame la causa.
+
+Propuesta devuelta por la IA:
+La IA me guio a revisar la clase de permisos dentro de mis archivos permissions.py u apiviews.py para verificar si tengo un permiso que limita operaciones de modificación. Además de verificar el envio correcto del Token en la petición.
+
+Análisis crítico:
+Esta sugerencia no me generó ningun tipo de sospecha o mala implementación. Continue con las instrucciones para comprobar mi problema.
+
+Refactorización implementada: Al verificar todo y cambiar algunas cosas el error desaparecio y pude continuar con el desarrollo.
+
+## Entrada 2: El ejemplo de la guía pertenecía a otro dominio
+
+**Consulta formulada a la IA:**
+`"Quiero desarrollar la evaluación 3 en base al archivo de instrucciones adaptado a la evaluacion 2."]`
+
+**Propuesta devuelta:**
+El material de la ES3 traía un ejemplo con campos `edad` y `estado`, y un `perform_create` que ejecutaba `decidir(edad, cupos_libres())` importando `cupos_libres` desde `solucion.py`.
+
+**Análisis crítico:**
+Mi `solucion.py` no tiene `cupos_libres` y `decidir()` recibe `(insumo, stock_actual, venta_proyectada)`. Copiar el ejemplo habría producido un `ImportError` al arrancar el servidor. Además, en el ejemplo el campo calculado es `estado`, mientras que en mi modelo los campos calculados son `estado` y `detalle`.
+
+**Refactorización implementada:**
+Adapté `calculo/serializers.py` y `calculo/api_views.py` a mi dominio: las entradas son `insumo`, `stock_actual` y `venta_proyectada`; `estado`, `detalle` y `fecha` van en `read_only_fields`; y `decidir()` se importa sin modificarla.
 
 ---
 
-## 1. Placeholder para datos históricos sin migrar (`0` vs `null`)
+## Entrada 3: Campos opcionales que provocarían un error 500
 
-**Contexto:** Al migrar los registros históricos de `datos.json` (ES1) a la base de datos de Django, surgió el problema de que `solucion.py` original nunca guardaba `stock_actual` ni `venta_proyectada` solo el resultado (`estado`, `detalle`) de `decidir()`. Esos datos de entrada simplemente no existen.
+**Consulta formulada a la IA:**
+Aquí está mi models.py y mi serializer. ¿Qué peticiones POST podrían provocar un error 500 en lugar de un 400? Dame ejemplos de cuerpos JSON que lo causen.
 
-**Prompt (resumido):** Se consultó cómo poblar esos dos campos al migrar los registros antiguos, dado que la ES1 nunca los persistió.
+**Propuesta devuelta:**
+Al revisar mi `models.py` se señaló que `stock_actual` y `venta_proyectada` son `null=True, blank=True`, por lo que DRF los trataría como opcionales.
 
-**Respuesta de la IA y análisis crítico:** La IA propuso inicialmente usar `0` como valor placeholder para `stock_actual` y `venta_proyectada` en los registros migrados. Al revisar esta sugerencia, se identificó que era incorrecta: `0` es un valor real (`0` unidades de stock, `$0` de venta proyectada), distinto de "este dato nunca se registró". Guardar `0` habría sido información falsa.
+**Análisis crítico:**
+Si el cliente omite uno de esos campos, `decidir()` compara `None < 0` y lanza `TypeError`, que el cliente vería como `500 Internal Server Error`. El criterio 3.1.3 exige que las validaciones impidan inconsistencias sin arrojar error 500.
 
-**Corrección implementada:** Se cambiaron los campos `stock_actual` y `venta_proyectada` del modelo `Registro` a `null=True, blank=True`, y el script de carga (`cargar_datos.py`) se ajustó para insertar `None` en vez de `0` en los registros migrados desde la ES1. Esto refleja correctamente en la base de datos que esos valores son desconocidos, no cero.
-
----
-
-## 2. Protección de acceso por rol: seguridad en el servidor, no en la plantilla
-
-**Contexto:** Al implementar RBAC (roles `admin`, `normal`, `viewer`), se evaluó si ocultar los botones "Editar"/"Eliminar" en el template según el rol del usuario sería una buena medida de seguridad.
-
-**Prompt (resumido):** Se consultó sobre agregar una condición `{% if %}` en `lista.html` para ocultar esos botones a usuarios sin permiso, como mejora de experiencia de usuario.
-
-**Respuesta de la IA y análisis crítico:** La IA fue explícita en que esa condición en el template es **puramente cosmética** y nunca debe considerarse una medida de seguridad real: un usuario con rol `viewer` que conozca o adivine la URL directa (ej. `/registros/1/editar/`) podría intentar acceder igualmente, sin pasar por ningún botón. La seguridad real debe residir exclusivamente en el decorador `@requiere_rol` aplicado a nivel de vista, en el servidor.
-
-**Corrección/decisión implementada:** Se mantuvo `@requiere_rol("admin")` como única barrera real en las vistas `editar` y `eliminar`. Se verificó manualmente (checklist del documento de instrucciones) que un usuario `viewer` autenticado, al intentar acceder directamente a `/registros/1/editar/` por la barra de direcciones, es redirigido por el servidor con un mensaje de error — sin depender de que el botón esté oculto en la interfaz.
+**Refactorización implementada:**
+Agregué `extra_kwargs` con `required: True` y `allow_null: False` en el serializer, y los métodos `validate_stock_actual` y `validate_venta_proyectada` para rechazar valores negativos.
 
 ---
 
-## 3. Persistencia de contraseñas: confirmación del comportamiento nativo, no implementación propia
+## Entrada 4: Permisos por `is_staff` o por grupos
 
-**Contexto:** Al crear el usuario de prueba `lector` con `crear_usuarios.py`, surgió la duda de cómo verificar que la contraseña quedaba cifrada, dado que el admin de Django no permite "ver" la contraseña de un usuario existente, solo resetearla.
+**Consulta formulada a la IA:**
+Mi aplicación web usa grupos (admin, normal, viewer) para los permisos, pero en la API me piden usar is_staff. ¿Por qué podrían ser distintos? ¿Qué problemas puede traer tener ambos criterios en el mismo proyecto?
 
-**Prompt (resumido):** Se consultó por qué el admin solo ofrece "reset password" para un usuario existente y no muestra la contraseña actual.
+**Propuesta devuelta:**
+La guía diferencia permisos con `is_staff` (lectura y creación para autenticados; edición y borrado solo para staff). Mi aplicación web de la Eva 2 usa en cambio grupos (`admin`, `normal`, `viewer`).
 
-**Respuesta de la IA y análisis crítico:** Se confirmó que esto es el comportamiento esperado y correcto de Django: las contraseñas se almacenan cifradas con PBKDF2 (algoritmo de un solo sentido), por lo que no existe ningún mecanismo, ni para el superusuario ni para el propio framework, que permita recuperar la contraseña original desde el hash guardado. Esto se verificó consultando directamente `user.password` desde `manage.py shell`, confirmando el formato `pbkdf2_sha256$...` sin exponer ni modificar la contraseña real del usuario.
+**Análisis crítico:**
+Son dos mecanismos distintos y no coinciden: un usuario del grupo `normal` no es staff, y un staff no pertenece necesariamente a un grupo. Mezclarlos sin decidir habría dejado comportamientos inconsistentes entre la web y la API.
 
-**Conclusión:** No se implementó código adicional — se confirmó que el cifrado nativo de `django.contrib.auth` (requerido por el criterio 2.1.4) ya cumple el requisito sin necesidad de lógica propia, y que intentar "ver" una contraseña sería, de hecho, una señal de mala práctica de seguridad si fuera posible.
+**Refactorización implementada:**
+Decidí usar `is_staff` en la API, como pide la guía, mediante `PermisoDiferenciadoRegistro` en `calculo/permissions.py`, y dejar las vistas HTML con sus grupos. Dejé anotada la unificación como mejora futura en el README. Comprobé que `lector` (no staff) puede leer y crear pero recibe `403` al editar o eliminar (`pruebas/<archivo>`).
 
 ---
 
-## Nota sobre decisiones fuera de alcance
+## Entrada 5: El token no expira
 
-Durante el desarrollo se identificó una mejora futura no requerida por esta evaluación: registrar `stock_actual`/`venta_proyectada` reales desde una fuente externa (tabla de factores de uso por insumo) para auditar con el tiempo si el `factor_uso` de `decidir()` sigue siendo preciso. Se documenta aquí como línea de trabajo futura, no como parte de la entrega actual.
+**Consulta formulada a la IA:**
+Si alguien roba mi token, ¿cuánto tiempo sirve? ¿Qué alternativas existen y cuándo conviene cada una?
 
-Principalmente esto, como solución a un caso que ya me ocurre en mi trabajo, necesita varias mejoras con datos que ya tenemos en la empresa. Por lo tanto quedan más como un Could Have.
+**Propuesta devuelta:**
+La guía implementa `TokenAuthentication`. La rúbrica del criterio 3.1.2 menciona, en su nivel máximo, tokens o JWT "con rotación/refresco".
+
+**Análisis crítico:**
+El token de `rest_framework.authtoken` es permanente: si se filtra, sirve hasta que se elimine manualmente de la base. No tiene expiración ni rotación.
+
+**Refactorización implementada:**
+Mantuve TokenAuthentication por lo que indica la guía
+
+---
+
+## Entrada 6: Credenciales en los archivos de prueba
+
+**Consulta formulada a la IA:**
+Voy a entregar una carpeta pruebas/ con evidencias de curl que incluyen peticiones con tokens y un archivo con usuario y contraseña. ¿Qué riesgos tiene entregar eso y cómo debo manejarlo?
+
+**Propuesta devuelta:**
+Para ejecutar los `curl` sin problemas de comillas se recomendó guardar el cuerpo de la petición en archivos JSON, incluyendo uno con usuario y contraseña para obtener el token.
+
+**Análisis crítico:**
+Esos archivos y los tokens que aparecen en las respuestas quedarían dentro de la carpeta `pruebas/` que se entrega, lo que contradice el requisito de cero exposición de credenciales o tokens.
+
+**Refactorización implementada:**
+Eliminé el archivo con la contraseña y reemplacé los tokens reales por `<TOKEN>` en las evidencias.
+
+---
+
+## Reflexión final
+
+Generalmente mi aprendizaje con la IA es limitado, hay varios conceptos que como gran maestra de información maneja de forma feroz que yo no puedo lograr a entender directamente. Es seguro que varias cosas dentro de esta evaluación no haya logrado comprenderlas en su totalidad, sino solo ver que funcionan correctamente. El código de la IA funciono correctamente en gran parte del camino y pocas veces tuve que hacer correcciones o anotaciones e incluso asi tenian más relación con mis errores que los suyos. Si tuviera que cambiar esta forma de desarrollo a otra, seria una que me enseñara y forzara a aplicar cada cambio para lograr entender el proyecto en su totalidad, aunque claro esto significa más uso de tiempo, también es más seguridad al juzgar a la IA.
